@@ -18,6 +18,7 @@ import java.time.{
 }
 
 import zio.IO
+import scala.collection.immutable.Nil
 
 /**
  * A `Flag[A]` models a command-line flag that produces a value of type `A`.
@@ -35,12 +36,14 @@ sealed trait Options[+A] { self =>
   final def requiresNot[B](that: Options[B], suchThat: B => Boolean = (_: B) => true): Options[A] =
     Options.RequiresNot(self, that, suchThat)
 
-  def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)] = ???
+  def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)]
 }
 
 object Options {
   // --verbose 3
-  final case object Empty extends Options[Unit]
+  final case object Empty extends Options[Unit] {
+    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], Unit)] = ???
+  }
 
   final case class Single[+A](
     name: String,
@@ -67,6 +70,11 @@ object Options {
 
     def mapTry[B](f: A => B): Options[B] =
       copy(flagType = Map(flagType, (a: A) => scala.util.Try(f(a)).toEither.left.map(_.getMessage)))
+
+    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)] =
+      flagType.validate(args, supportedOptions)
+
+    private def supportedOptions = aliases :+ name
   }
 
   final case class Cons[A, B](left: Options[A], right: Options[B]) extends Options[(A, B)] {
@@ -85,18 +93,66 @@ object Options {
         } yield (args -> (a -> b)))
   }
 
-  final case class Requires[A, B](options: Options[A], target: Options[B], predicate: B => Boolean) extends Options[A]
+  final case class Requires[A, B](options: Options[A], target: Options[B], predicate: B => Boolean) extends Options[A] {
+    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)] = ???
+  }
 
-  final case class RequiresNot[A, B](options: Options[A], target: Options[B], predicate: B => Boolean)
-      extends Options[A]
+  final case class RequiresNot[A, B](options: Options[A], target: Options[B], predicate: B => Boolean) extends Options[A] {
+    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)] = ???
+  }
 
-  sealed trait Type[+A]
+  sealed trait Type[+A] {
+    def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], A)]
+  }
   object Type {
 
-    final case class Toggle(negationName: Option[String], ifPresent: Boolean) extends Type[Boolean]
-    final case class Map[A, B](value: Type[A], f: A => Either[String, B])     extends Type[B]
-    final case class Optional[A](value: Type[A])                              extends Type[Option[A]]
-    final case class Primitive[A](primType: PrimType[A])                      extends Type[A]
+    final case class Toggle(negationName: Option[String], ifPresent: Boolean) extends Type[Boolean] {
+      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], Boolean)] = ???
+    }
+
+    final case class Map[A, B](value: Type[A], f: A => Either[String, B]) extends Type[B] {
+      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], B)] = ???
+    }
+
+    final case class Optional[A](value: Type[A]) extends Type[Option[A]] {
+      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], Option[A])] = {
+        def loop(args: List[String], fails: List[HelpDoc.Block], tally: List[String]): IO[List[HelpDoc.Block], (List[String], Option[A])] =
+          args match {
+            case head :: tail =>
+              if (supportedOptions contains (head))
+                value.validate(args, supportedOptions).map(r => r._1 -> Some(r._2))
+              else loop(tail, fails, tally :+ head)
+            case Nil => IO.succeed(tally -> None)
+          }
+
+        loop(args, Nil, Nil)
+      }
+    }
+
+    final case class Primitive[A](primType: PrimType[A]) extends Type[A] {
+      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], A)] = {
+        def loop(args: List[String], fails: List[HelpDoc.Block], tally: List[String]): IO[List[HelpDoc.Block], (List[String], A)] =
+          args match {
+            case head :: tail =>
+              if (supportedOptions contains (head))
+                tail match {
+                  case next :: remainder =>
+                    primType
+                      .validate(next)
+                      .foldM(
+                        e => loop(tail, HelpDoc.Block.paragraph(e) :: fails, tally),
+                        a => IO.succeed(tally ++ remainder -> a)
+                      )
+                  case Nil => IO.fail(HelpDoc.Block.paragraph(s"Couldn't find value for option ${head}.") :: fails)
+                }
+              else loop(tail, fails, tally :+ head)
+            case Nil =>
+              IO.fail(HelpDoc.Block.paragraph(s"No options found!. Was expecting one of the following: ${supportedOptions.mkString(", ")}.") :: fails)
+          }
+
+        loop(args, Nil, Nil)
+      }
+    }
   }
 
   import Type._
