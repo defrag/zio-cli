@@ -49,7 +49,7 @@ object Options {
   final case class Single[+A](
     name: String,
     aliases: Vector[String],
-    flagType: Options.Type[A],
+    optionType: Options.Type[A],
     description: Vector[String]
   ) extends Options[A] {
     import Options.Type._
@@ -63,17 +63,17 @@ object Options {
     def aliases(names: String*): Options[A] = copy(aliases = aliases ++ names)
 
     def collect[B](message: String)(f: PartialFunction[A, B]): Options[B] =
-      copy(flagType = Map(flagType, (a: A) => f.lift(a).fold[Either[String, B]](Left(message))(Right(_))))
+      copy(optionType = Map(optionType, (a: A) => f.lift(a).fold[Either[String, B]](Left(message))(Right(_))))
 
-    def optional: Options[Option[A]] = copy(flagType = Optional(flagType))
+    def optional: Options[Option[A]] = copy(optionType = Optional(optionType))
 
-    def map[B](f: A => B): Options[B] = copy(flagType = Map(flagType, (a: A) => Right(f(a))))
+    def map[B](f: A => B): Options[B] = copy(optionType = Map(optionType, (a: A) => Right(f(a))))
 
     def mapTry[B](f: A => B): Options[B] =
-      copy(flagType = Map(flagType, (a: A) => scala.util.Try(f(a)).toEither.left.map(_.getMessage)))
+      copy(optionType = Map(optionType, (a: A) => scala.util.Try(f(a)).toEither.left.map(_.getMessage)))
 
     def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)] =
-      flagType.validate(args, supportedOptions)
+      optionType.validate(args, supportedOptions)
 
     private def supportedOptions = aliases :+ name
   }
