@@ -123,7 +123,7 @@ object Options {
           args match {
             case head :: tail =>
               if (supportedOptions contains (head))
-                value.validate(args, supportedOptions).map(r => r._1 -> Some(r._2))
+                value.validate(args, supportedOptions).map(r => tally ++ r._1 -> Some(r._2))
               else loop(tail, fails, tally :+ head)
             case Nil => IO.succeed(tally -> None)
           }

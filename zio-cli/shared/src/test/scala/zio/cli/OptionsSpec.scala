@@ -60,6 +60,10 @@ object OptionsSpec extends DefaultRunnableSpec {
       val r = aOpt.validate(List("age", "20"), ParserOptions.default)
       assertM(r)(equalTo(List() -> Some(BigInt(20))))
     },
+    testM("validate supplied optional with remainder") {
+      val r = aOpt.validate(List("firstname", "John", "age", "20", "lastname", "Doe"), ParserOptions.default)
+      assertM(r)(equalTo(List("firstname", "John", "lastname", "Doe") -> Some(BigInt(20))))
+    },
     testM("validate supplied bool with const true") {
       val r = Options.bool("verbose", true).validate(List("verbose"), ParserOptions.default)
       assertM(r)(equalTo(List() -> true))
