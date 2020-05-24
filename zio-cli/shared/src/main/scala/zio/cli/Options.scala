@@ -111,7 +111,8 @@ object Options {
     }
 
     final case class Map[A, B](value: Type[A], f: A => Either[String, B]) extends Type[B] {
-      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], B)] = ???
+      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], B)] = 
+        value.validate(args, supportedOptions).flatMap(r => f(r._2).fold(e => IO.fail(HelpDoc.Block.paragraph(e) :: Nil), s => IO.succeed(r._1 -> s)))
     }
 
     final case class Optional[A](value: Type[A]) extends Type[Option[A]] {
