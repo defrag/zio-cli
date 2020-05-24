@@ -108,7 +108,8 @@ object Options {
   object Type {
 
     final case class Toggle(negationName: Option[String], ifPresent: Boolean) extends Type[Boolean] {
-      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], Boolean)] = ???
+      def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], Boolean)] = 
+        IO.succeed(args.filter(!supportedOptions.contains(_)) -> supportedOptions.exists(args.contains)).map(_._1 -> ifPresent)
     }
 
     final case class Map[A, B](value: Type[A], f: A => Either[String, B]) extends Type[B] {
