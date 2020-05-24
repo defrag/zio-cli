@@ -42,7 +42,8 @@ sealed trait Options[+A] { self =>
 object Options {
   // --verbose 3
   final case object Empty extends Options[Unit] {
-    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], Unit)] = ???
+    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], Unit)] = 
+      IO.succeed(args -> ())
   }
 
   final case class Single[+A](
