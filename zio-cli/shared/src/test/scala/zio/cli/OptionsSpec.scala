@@ -64,17 +64,25 @@ object OptionsSpec extends DefaultRunnableSpec {
       val r = aOpt.validate(List("firstname", "John", "age", "20", "lastname", "Doe"), ParserOptions.default)
       assertM(r)(equalTo(List("firstname", "John", "lastname", "Doe") -> Some(BigInt(20))))
     },
-    testM("validate supplied bool with const true") {
+    testM("validate bool - if the option is present, then it produces true, because ifPresent = true") {
       val r = Options.bool("verbose", true).validate(List("verbose"), ParserOptions.default)
       assertM(r)(equalTo(List() -> true))
     },
-    testM("validate supplied bool with const falst") {
+    testM("validate bool - If the option is absent, then it produces false, because ifPresent = true") {
+      val r = Options.bool("verbose", true).validate(List(), ParserOptions.default)
+      assertM(r)(equalTo(List() -> false))
+    },
+    /*testM("If the option is not present, but the negative name is present, then it produces false, because ifPresent is true.") {
+      val r = Options.bool("verbose", true, Some("non-verbose")).validate(List("non-verbose"), ParserOptions.default)
+      assertM(r)(equalTo(List() -> false))
+    },*/
+    testM("validate supplied bool with isPresent false") {
       val r = Options.bool("verbose", false).validate(List("verbose"), ParserOptions.default)
       assertM(r)(equalTo(List() -> false))
     },
-    testM("validate supplied bool with const falst") {
-      val r = Options.bool("verbose", false).validate(List("firstname", "John", "verbose", "lastname", "Doe"), ParserOptions.default)
-      assertM(r)(equalTo(List("firstname", "John", "lastname", "Doe") -> false))
+    testM("validate supplied bool with isPresent false") {
+      val r = Options.bool("verbose", false).validate(List("firstname", "John", "lastname", "Doe"), ParserOptions.default)
+      assertM(r)(equalTo(List("firstname", "John", "lastname", "Doe") -> true))
     }
   )
 

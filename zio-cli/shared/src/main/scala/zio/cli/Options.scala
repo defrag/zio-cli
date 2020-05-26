@@ -95,7 +95,8 @@ object Options {
   }
 
   final case class Requires[A, B](options: Options[A], target: Options[B], predicate: B => Boolean) extends Options[A] {
-    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)] = ???
+    def validate(args: List[String], opts: ParserOptions): IO[List[HelpDoc.Block], (List[String], A)] = 
+      target.validate(args, opts).foldM(f => IO.fail(f), _ => options.validate(args, opts))
   }
 
   final case class RequiresNot[A, B](options: Options[A], target: Options[B], predicate: B => Boolean) extends Options[A] {
@@ -109,7 +110,7 @@ object Options {
 
     final case class Toggle(negationName: Option[String], ifPresent: Boolean) extends Type[Boolean] {
       def validate(args: List[String], supportedOptions: Vector[String]): IO[List[HelpDoc.Block], (List[String], Boolean)] = 
-        IO.succeed(args.filter(!supportedOptions.contains(_)) -> supportedOptions.exists(args.contains)).map(_._1 -> ifPresent)
+        IO.succeed(args.filter(!supportedOptions.contains(_)) -> supportedOptions.exists(args.contains)).map(r => r._1 -> (ifPresent == r._2))
     }
 
     final case class Map[A, B](value: Type[A], f: A => Either[String, B]) extends Type[B] {
